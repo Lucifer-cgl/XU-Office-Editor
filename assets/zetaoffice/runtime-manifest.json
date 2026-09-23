@@ -1,0 +1,27 @@
+{
+  "soffice.wasm": {
+    "contentType": "application/wasm",
+    "length": 161667499,
+    "parts": [
+      "soffice.wasm.part001",
+      "soffice.wasm.part002",
+      "soffice.wasm.part003",
+      "soffice.wasm.part004",
+      "soffice.wasm.part005",
+      "soffice.wasm.part006",
+      "soffice.wasm.part007",
+      "soffice.wasm.part008"
+    ]
+  },
+  "soffice.data": {
+    "contentType": "application/octet-stream",
+    "length": 99520604,
+    "parts": [
+      "soffice.data.part001",
+      "soffice.data.part002",
+      "soffice.data.part003",
+      "soffice.data.part004",
+      "soffice.data.part005"
+    ]
+  }
+}
