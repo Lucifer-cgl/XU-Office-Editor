@@ -1,9 +1,10 @@
 param(
-  [switch]$NoBrowser
+  [switch]$NoBrowser,
+  [string]$Root
 )
 
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$root = if ($Root) { [System.IO.Path]::GetFullPath($Root) } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 $port = 4173
 $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $port)
 $listener.Start()
