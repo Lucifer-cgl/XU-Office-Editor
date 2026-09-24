@@ -131,9 +131,9 @@ function hideNativeChrome() {
   const layout = frame.LayoutManager;
   frame.getContainerWindow().FullScreen = true;
   try { layout.hideElement("private:resource/menubar/menubar"); } catch {}
-  try { layout.hideElement("private:resource/dockingwindow/Sidebar"); } catch {}
+  try { layout.showElement("private:resource/dockingwindow/Sidebar"); } catch {}
+  try { dispatch("SidebarDeck.NavigatorDeck"); } catch {}
   try { layout.hideElement("private:resource/statusbar/statusbar"); } catch {}
-  try { dispatch("Sidebar"); } catch {}
   try { dispatch("Ruler"); } catch {}
 }
 
