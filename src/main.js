@@ -28,6 +28,23 @@ const folderSummary = document.querySelector("#folder-summary");
 const fileTree = document.querySelector("#file-tree");
 const folderSearch = document.querySelector("#folder-search");
 const commandButtons = [...document.querySelectorAll("[data-command]")];
+const modeButtons = [...document.querySelectorAll("[data-mode]")];
+const fontFamily = document.querySelector("#font-family");
+const fontSize = document.querySelector("#font-size");
+const fontColor = document.querySelector("#font-color");
+const highlightColor = document.querySelector("#highlight-color");
+const lineSpacing = document.querySelector("#line-spacing");
+const insertImageButton = document.querySelector("#insert-image");
+const insertTableButton = document.querySelector("#insert-table");
+const imeButton = document.querySelector("#ime-focus");
+const imeBridge = document.querySelector("#ime-bridge");
+const imagePicker = document.querySelector("#image-picker");
+const readModeNotice = document.querySelector("#read-mode-notice");
+const tableDialog = document.querySelector("#table-dialog");
+const tableRows = document.querySelector("#table-rows");
+const tableColumns = document.querySelector("#table-columns");
+const tableCancel = document.querySelector("#table-cancel");
+const editingControls = [...commandButtons, fontFamily, fontSize, fontColor, highlightColor, lineSpacing, insertImageButton, insertTableButton, imeButton];
 
 let officePort;
 let fileHandle;
@@ -37,6 +54,9 @@ let folderName = "";
 let folderFiles = [];
 let bridgeTarget = null;
 let bridgeOrigin = "*";
+let documentIsReady = false;
+let documentMode = "read";
+let imeComposing = false;
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -54,8 +74,28 @@ function setEngineReady(ready) {
 }
 
 function setDocumentReady(ready) {
+  documentIsReady = ready;
   saveButton.disabled = !ready;
-  commandButtons.forEach((button) => { button.disabled = !ready; });
+  modeButtons.forEach((button) => { button.disabled = !ready; });
+  updateEditingControls();
+}
+
+function updateEditingControls() {
+  const locked = !documentIsReady || documentMode !== "edit";
+  editingControls.forEach((control) => { control.disabled = locked; });
+  readModeNotice.hidden = !documentIsReady || documentMode !== "read";
+  canvas.setAttribute("contenteditable", documentMode === "edit" ? "true" : "false");
+}
+
+function setDocumentMode(mode, announce = true) {
+  documentMode = mode === "edit" ? "edit" : "read";
+  modeButtons.forEach((button) => button.classList.toggle("active", button.dataset.mode === documentMode));
+  if (documentMode === "read") {
+    imeBridge.blur();
+    imeButton.classList.remove("active");
+  }
+  updateEditingControls();
+  if (announce && documentIsReady) setStatus(documentMode === "edit" ? "已进入编辑模式，可使用中文输入法" : "已进入阅读模式，编辑已锁定");
 }
 
 function extensionOf(name) {
@@ -100,6 +140,7 @@ async function loadBytes(name, bytes, relativePath = name) {
   loading.querySelector("h1").textContent = "正在打开文档";
   loading.querySelector("p").textContent = relativePath;
   canvas.hidden = true;
+  setDocumentMode("read", false);
   setDocumentReady(false);
   FS.writeFile(`/tmp/office/${name}`, new Uint8Array(bytes));
   officePort.postMessage({ cmd: "upload", filename: name });
@@ -249,10 +290,91 @@ async function persistBytes(bytes) {
   setStatus(`已下载修改后的文件：${fileName}`);
 }
 
-function sendCommand(id) {
-  if (!officePort || !fileName) return;
-  officePort.postMessage({ cmd: "command", id });
-  canvas.focus();
+function sendCommand(id, value) {
+  if (!officePort || !fileName || documentMode !== "edit") return;
+  officePort.postMessage({ cmd: "command", id, value });
+  if (document.activeElement !== imeBridge) canvas.focus();
+}
+
+function colorNumber(hex) {
+  return Number.parseInt(hex.replace("#", ""), 16);
+}
+
+function isWriterDocument() {
+  return ["doc", "docx", "odt", "rtf", "txt", "html", "htm"].includes(extensionName(fileName));
+}
+
+function focusImeBridge(clientX, clientY) {
+  if (!documentIsReady || documentMode !== "edit" || !isWriterDocument()) return;
+  if (Number.isFinite(clientX)) imeBridge.style.left = `${Math.max(8, Math.min(window.innerWidth - 20, clientX))}px`;
+  if (Number.isFinite(clientY)) imeBridge.style.top = `${Math.max(8, Math.min(window.innerHeight - 30, clientY))}px`;
+  imeBridge.focus({ preventScroll: true });
+  imeButton.classList.add("active");
+  setStatus("中文输入已激活，可直接使用系统输入法");
+}
+
+function commitImeText() {
+  if (imeComposing || !imeBridge.value) return;
+  const text = imeBridge.value;
+  imeBridge.value = "";
+  sendCommand("InsertText", text);
+}
+
+function handleImeKeydown(event) {
+  if (imeComposing || event.isComposing) return;
+  const shortcut = event.ctrlKey || event.metaKey;
+  if (shortcut) {
+    const commands = { b: "Bold", i: "Italic", u: "Underline", z: event.shiftKey ? "Redo" : "Undo", y: "Redo" };
+    const command = commands[event.key.toLowerCase()];
+    if (command) {
+      event.preventDefault();
+      sendCommand(command);
+    }
+    if (event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      requestSave();
+    }
+    return;
+  }
+  const commands = {
+    Backspace: "SwBackspace", Delete: "Delete", Enter: "InsertPara", Tab: "InsertTab",
+    ArrowLeft: "GoLeft", ArrowRight: "GoRight", ArrowUp: "GoUp", ArrowDown: "GoDown",
+    Home: "GoToStartOfLine", End: "GoToEndOfLine", PageUp: "PageUp", PageDown: "PageDown"
+  };
+  if (commands[event.key]) {
+    event.preventDefault();
+    sendCommand(commands[event.key]);
+  } else if (event.key === "Escape") {
+    imeBridge.blur();
+    imeButton.classList.remove("active");
+    canvas.focus();
+  }
+}
+
+function insertImage() {
+  if (!documentIsReady || documentMode !== "edit") return;
+  imagePicker.value = "";
+  imagePicker.click();
+}
+
+async function handleSelectedImage() {
+  const image = imagePicker.files?.[0];
+  if (!image) return;
+  try {
+    ensureOfficeDirectory();
+    const safeName = `insert-${Date.now()}-${image.name.replace(/[^\p{L}\p{N}._-]/gu, "-")}`;
+    FS.writeFile(`/tmp/office/${safeName}`, new Uint8Array(await image.arrayBuffer()));
+    officePort.postMessage({ cmd: "insert-image", filename: safeName });
+    setStatus(`正在插入图片：${image.name}`);
+  } catch (error) {
+    setStatus(`图片插入失败：${error.message}`);
+  }
+}
+
+function insertTable() {
+  if (!documentIsReady || documentMode !== "edit") return;
+  tableDialog.showModal();
+  tableRows.focus();
 }
 
 function receiveBridgeMessage(event) {
@@ -281,11 +403,50 @@ fileTree.addEventListener("click", (event) => {
   if (button) openTreeFile(button.dataset.path);
 });
 commandButtons.forEach((button) => button.addEventListener("click", () => sendCommand(button.dataset.command)));
+modeButtons.forEach((button) => button.addEventListener("click", () => setDocumentMode(button.dataset.mode)));
+fontFamily.addEventListener("change", () => sendCommand("CharFontName", fontFamily.value));
+fontSize.addEventListener("change", () => sendCommand("FontHeight", fontSize.value));
+fontColor.addEventListener("input", () => sendCommand("Color", colorNumber(fontColor.value)));
+highlightColor.addEventListener("input", () => sendCommand("CharBackColor", colorNumber(highlightColor.value)));
+lineSpacing.addEventListener("change", () => sendCommand(lineSpacing.value));
+insertImageButton.addEventListener("click", insertImage);
+imagePicker.addEventListener("change", handleSelectedImage);
+insertTableButton.addEventListener("click", insertTable);
+tableCancel.addEventListener("click", () => tableDialog.close());
+tableDialog.addEventListener("submit", () => {
+  const rows = Math.max(1, Math.min(20, Number.parseInt(tableRows.value, 10) || 3));
+  const columns = Math.max(1, Math.min(12, Number.parseInt(tableColumns.value, 10) || 3));
+  officePort.postMessage({ cmd: "insert-table", rows, columns });
+  setStatus(`正在插入 ${rows} × ${columns} 表格`);
+});
+imeButton.addEventListener("click", () => focusImeBridge(window.innerWidth / 2, window.innerHeight / 2));
+canvas.addEventListener("click", (event) => setTimeout(() => focusImeBridge(event.clientX, event.clientY), 0));
+imeBridge.addEventListener("compositionstart", () => { imeComposing = true; });
+imeBridge.addEventListener("compositionend", () => {
+  imeComposing = false;
+  queueMicrotask(commitImeText);
+});
+imeBridge.addEventListener("input", (event) => {
+  if (!event.isComposing) commitImeText();
+});
+imeBridge.addEventListener("keydown", handleImeKeydown);
+imeBridge.addEventListener("blur", () => imeButton.classList.remove("active"));
+document.addEventListener("keydown", (event) => {
+  if (documentMode !== "read" || !documentIsReady) return;
+  const navigationKeys = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"]);
+  if (navigationKeys.has(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) return;
+  if (event.target === canvas || event.target === imeBridge) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    setStatus("当前为阅读模式；切换到“编辑”后才能修改文档");
+  }
+}, true);
 window.addEventListener("message", receiveBridgeMessage);
 window.addEventListener("beforeunload", () => {
   if (bridgeTarget) bridgeTarget.postMessage({ source: BRIDGE_SOURCE, type: "closed" }, bridgeOrigin);
 });
 setDocumentReady(false);
+setDocumentMode("read", false);
 
 async function bootOffice() {
   if (!("serviceWorker" in navigator)) throw new Error("请使用最新版 Chrome 或 Edge");
@@ -338,7 +499,8 @@ async function bootOffice() {
             welcome.hidden = true;
             canvas.hidden = false;
             setDocumentReady(true);
-            setStatus(`正在编辑：${currentRelativePath || fileName}`);
+            setDocumentMode("read", false);
+            setStatus(`阅读中：${currentRelativePath || fileName}`);
             requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
             return;
           }
@@ -350,6 +512,18 @@ async function bootOffice() {
           }
           if (event.data.cmd === "format-state") {
             document.querySelector(`[data-command="${event.data.id}"]`)?.classList.toggle("active", Boolean(event.data.state));
+            return;
+          }
+          if (event.data.cmd === "format-value") {
+            const select = event.data.id === "CharFontName" ? fontFamily : event.data.id === "FontHeight" ? fontSize : null;
+            if (select) {
+              if (![...select.options].some((option) => option.value === event.data.value)) select.add(new Option(event.data.value, event.data.value));
+              select.value = event.data.value;
+            }
+            return;
+          }
+          if (event.data.cmd === "operation-result" || event.data.cmd === "operation-error") {
+            setStatus(event.data.message);
             return;
           }
           throw new Error(`未知消息：${event.data.cmd}`);

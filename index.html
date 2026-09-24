@@ -18,6 +18,10 @@
           <span id="file-name">未打开文档</span>
           <span id="file-path">请选择文件或文件夹</span>
         </div>
+        <div class="mode-switch" role="group" aria-label="文档模式">
+          <button type="button" data-mode="read" class="active">阅读</button>
+          <button type="button" data-mode="edit">编辑</button>
+        </div>
         <div class="actions">
           <button id="open-file" type="button" disabled>打开文件</button>
           <button id="save-file" type="button" class="primary" disabled>保存</button>
@@ -46,24 +50,53 @@
 
       <section class="editor-area">
         <div class="toolbar" aria-label="文档编辑工具">
-          <div class="toolbar-group">
-            <button type="button" data-command="Undo" title="撤销 Ctrl+Z">↶</button>
-            <button type="button" data-command="Redo" title="重做 Ctrl+Y">↷</button>
+          <div class="toolbar-group history-tools" aria-label="历史操作">
+            <button type="button" data-command="Undo" title="撤销 Ctrl+Z">↶<small>撤销</small></button>
+            <button type="button" data-command="Redo" title="重做 Ctrl+Y">↷<small>重做</small></button>
           </div>
           <span class="toolbar-divider"></span>
-          <div class="toolbar-group text-tools">
+          <div class="toolbar-group font-tools" aria-label="字体">
+            <select id="font-family" title="字体" aria-label="字体">
+              <option value="Noto Sans SC">思源黑体</option>
+              <option value="Liberation Serif">衬线字体</option>
+              <option value="Liberation Sans">无衬线字体</option>
+              <option value="Liberation Mono">等宽字体</option>
+            </select>
+            <select id="font-size" title="字号" aria-label="字号">
+              <option>9</option><option>10.5</option><option selected>12</option><option>14</option>
+              <option>16</option><option>18</option><option>22</option><option>26</option><option>32</option><option>48</option>
+            </select>
             <button type="button" data-command="Bold" title="加粗 Ctrl+B"><strong>B</strong></button>
             <button type="button" data-command="Italic" title="斜体 Ctrl+I"><em>I</em></button>
             <button type="button" data-command="Underline" title="下划线 Ctrl+U"><u>U</u></button>
+            <button type="button" data-command="Strikeout" title="删除线"><s>S</s></button>
+            <label class="color-tool" title="字体颜色"><span>A</span><input id="font-color" type="color" value="#111827" aria-label="字体颜色"></label>
+            <label class="color-tool highlight" title="文字高亮"><span>▰</span><input id="highlight-color" type="color" value="#fff59d" aria-label="文字高亮"></label>
           </div>
           <span class="toolbar-divider"></span>
-          <div class="toolbar-group">
-            <button type="button" data-command="JustifyLeft" title="左对齐">≡</button>
-            <button type="button" data-command="JustifyCenter" title="居中对齐">≣</button>
-            <button type="button" data-command="JustifyRight" title="右对齐">≡</button>
+          <div class="toolbar-group paragraph-tools" aria-label="段落">
+            <button type="button" data-command="LeftPara" title="左对齐">≡</button>
+            <button type="button" data-command="CenterPara" title="居中对齐">≣</button>
+            <button type="button" data-command="RightPara" title="右对齐">≡</button>
+            <button type="button" data-command="JustifyPara" title="两端对齐">☷</button>
+            <button type="button" data-command="DefaultBullet" title="项目符号">• 列表</button>
+            <button type="button" data-command="DefaultNumbering" title="编号列表">1. 列表</button>
+            <button type="button" data-command="DecrementIndent" title="减少缩进">⇤</button>
+            <button type="button" data-command="IncrementIndent" title="增加缩进">⇥</button>
+            <select id="line-spacing" title="行距" aria-label="行距">
+              <option value="SpacePara1">1 倍行距</option>
+              <option value="SpacePara15">1.5 倍</option>
+              <option value="SpacePara2">2 倍</option>
+            </select>
+          </div>
+          <span class="toolbar-divider"></span>
+          <div class="toolbar-group insert-tools" aria-label="插入">
+            <button id="insert-image" type="button" title="插入本地图片">图片</button>
+            <button id="insert-table" type="button" title="插入表格">表格</button>
+            <button type="button" data-command="InsertPagebreak" title="插入分页符">分页</button>
           </div>
           <span class="toolbar-spacer"></span>
-          <span class="toolbar-hint">常用快捷键可直接使用</span>
+          <button id="ime-focus" type="button" class="ime-button" title="激活系统中文输入法">中文输入</button>
         </div>
 
         <main class="workspace">
@@ -83,7 +116,10 @@
             </div>
             <div class="format-list"><span>DOCX</span><span>XLSX</span><span>PPTX</span><span>ODT</span><span>ODS</span><span>ODP</span></div>
           </section>
-          <canvas id="qtcanvas" class="office-canvas" contenteditable="true" hidden></canvas>
+          <canvas id="qtcanvas" class="office-canvas" contenteditable="false" hidden></canvas>
+          <textarea id="ime-bridge" class="ime-bridge" lang="zh-CN" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="中文输入桥"></textarea>
+          <input id="image-picker" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden>
+          <div id="read-mode-notice" class="read-mode-notice" hidden>阅读模式 · 已锁定编辑</div>
         </main>
 
         <footer class="status-bar">
@@ -92,6 +128,20 @@
         </footer>
       </section>
     </div>
+    <dialog id="table-dialog" class="table-dialog">
+      <form method="dialog">
+        <div class="dialog-heading"><strong>插入表格</strong><span>设置表格的行数和列数</span></div>
+        <div class="table-fields">
+          <label>行数<input id="table-rows" type="number" min="1" max="20" value="3"></label>
+          <span>×</span>
+          <label>列数<input id="table-columns" type="number" min="1" max="12" value="3"></label>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" id="table-cancel">取消</button>
+          <button type="submit" class="primary">插入</button>
+        </div>
+      </form>
+    </dialog>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>
