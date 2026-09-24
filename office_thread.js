@@ -77,7 +77,6 @@ function setDocumentZoom(value) {
     settings.setPropertyValue("ZoomType", zetajs.Any("com.sun.star.view.DocumentZoomType", "BY_VALUE"));
     settings.setPropertyValue("ZoomValue", zetajs.Any("short", zoom));
   } catch { /* Some document modules do not expose view settings. */ }
-  try { dispatch("Zoom", zoom); } catch { /* Keep the native view at its current scale. */ }
 }
 
 function insertImage(filename) {
