@@ -618,15 +618,24 @@ documentHandMode.addEventListener("click", () => {
   documentHandMode.classList.toggle("active", hand);
   documentHandMode.setAttribute("aria-pressed", String(hand));
 });
-function setDocumentFullscreen(active) {
+async function setDocumentFullscreen(active) {
   document.documentElement.dataset.focusMode = active ? "true" : "false";
   documentFullscreen.classList.toggle("active", active);
   documentFullscreen.textContent = active ? "退出全屏" : "全屏";
+  try {
+    if (active && !document.fullscreenElement) await document.documentElement.requestFullscreen?.();
+    if (!active && document.fullscreenElement) await document.exitFullscreen?.();
+  } catch (error) {
+    console.debug("浏览器全屏不可用，使用工作台全屏布局", error);
+  }
   if (embeddedMode && window.parent !== window) window.parent.postMessage({ source: BRIDGE_SOURCE, type: "toggle-fullscreen", active }, window.location.origin);
 }
-documentFullscreen.addEventListener("click", () => setDocumentFullscreen(document.documentElement.dataset.focusMode !== "true"));
+documentFullscreen.addEventListener("click", () => { void setDocumentFullscreen(document.documentElement.dataset.focusMode !== "true"); });
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && document.documentElement.dataset.focusMode === "true") setDocumentFullscreen(false);
+  if (event.key === "Escape" && document.documentElement.dataset.focusMode === "true") void setDocumentFullscreen(false);
+});
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement && document.documentElement.dataset.focusMode === "true") void setDocumentFullscreen(false);
 });
 fontFamily.addEventListener("change", () => sendCommand("CharFontName", fontFamily.value));
 fontSize.addEventListener("change", () => sendCommand("FontHeight", fontSize.value));
