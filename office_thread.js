@@ -75,14 +75,8 @@ function setDocumentZoom(value) {
   try {
     const settings = controller.getViewSettings();
     settings.setPropertyValue("ZoomValue", zetajs.Any("short", zoom));
-    return;
-  } catch {
-    try {
-      dispatch("Zoom", zoom);
-    } catch {
-      // Some document modules do not expose a zoom controller.
-    }
-  }
+  } catch { /* Some document modules do not expose view settings. */ }
+  try { dispatch("Zoom", zoom); } catch { /* Keep the native view at its current scale. */ }
 }
 
 function insertImage(filename) {
