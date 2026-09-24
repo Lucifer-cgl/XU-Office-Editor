@@ -10,6 +10,14 @@
 - 通过 `postMessage` 与 XU 交换文件字节，XU 保留文件夹句柄和写入权限。
 - Office 引擎与 XU 主站分离，避免大体积运行组件进入 XU 仓库或首屏资源。
 - 编辑器仓库自带全部运行组件，不依赖第三方 CDN。
+- 默认附带 Noto Sans SC 中文字体，用户无需另行安装字体即可正常显示中文文档。
+
+## 新界面与本地文件夹
+
+- 使用中文工作台替代 LibreOffice 原生菜单、工具栏、侧栏和状态栏，仅保留文档画布。
+- 点击“打开文件夹”会调用浏览器的系统文件夹选择器；左侧列表展示用户实际授权的文件和目录，不再显示虚拟的 Home / Web User。
+- 用户明确授权后可直接保存回原文件；单独打开且浏览器无法写回时，会下载保存后的文件。
+- 文件夹权限由浏览器控制，项目不会扫描未授权目录，也不会上传文档。
 
 ## 本地运行（零安装）
 
@@ -25,6 +33,8 @@ assets/zetaoffice/soffice.wasm.part001 ...
 assets/zetaoffice/soffice.data.part001 ...
 assets/zetaoffice/soffice.data.js.metadata
 assets/vendor/zetajs/zeta.js
+assets/fonts/NotoSansSC.ttf
+assets/fonts/OFL.txt
 ```
 
 由于完整 WASM 文件超过 GitHub 的单文件限制，仓库将它拆成不超过 20 MB 的分片。`sw.js` 会在浏览器内部流式组合这些分片，不在电脑中安装 Office，也不额外生成一份永久副本。

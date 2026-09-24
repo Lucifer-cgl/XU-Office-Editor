@@ -8,34 +8,90 @@
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
-    <header class="app-bar">
-      <div class="brand">
-        <span class="brand-mark">墟</span>
-        <span><strong>Office 编辑器</strong><small>文件只在当前浏览器中处理</small></span>
-      </div>
-      <div class="file-state">
-        <span id="file-name">尚未打开文件</span>
-        <span id="dirty-state" hidden>有未保存的修改</span>
-      </div>
-      <div class="actions">
-        <button id="open-file" type="button" disabled>选择文件</button>
-        <button id="save-file" type="button" class="primary" disabled>保存</button>
-      </div>
-    </header>
+    <div class="app-shell">
+      <header class="app-bar">
+        <div class="brand">
+          <span class="brand-mark">墟</span>
+          <span><strong>文档工作台</strong><small>本地编辑，不上传文件</small></span>
+        </div>
+        <div class="file-state">
+          <span id="file-name">未打开文档</span>
+          <span id="file-path">请选择文件或文件夹</span>
+        </div>
+        <div class="actions">
+          <button id="open-file" type="button" disabled>打开文件</button>
+          <button id="save-file" type="button" class="primary" disabled>保存</button>
+        </div>
+      </header>
 
-    <main class="workspace">
-      <section id="loading" class="loading" aria-live="polite">
-        <span class="spinner" aria-hidden="true"></span>
-        <h1>正在启动本地 Office 引擎</h1>
-        <p>首次加载需要下载浏览器端 LibreOffice 运行组件，之后可由浏览器缓存复用。</p>
+      <aside class="resource-panel">
+        <div class="resource-heading">
+          <div><span class="eyebrow">本地工作区</span><h2>我的文件夹</h2></div>
+          <button id="open-folder" type="button" disabled>选择</button>
+        </div>
+        <label class="folder-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="folder-search" type="search" placeholder="搜索文件" autocomplete="off" />
+        </label>
+        <div id="folder-summary" class="folder-summary">选择电脑中的文件夹后，这里会显示真实目录。</div>
+        <nav id="file-tree" class="file-tree" aria-label="本地文件目录">
+          <div class="empty-tree">
+            <span>＋</span>
+            <strong>连接本地文件夹</strong>
+            <p>Word、Excel、PPT 等文件只在你的电脑中读取。</p>
+          </div>
+        </nav>
+        <div class="privacy-note"><span>●</span> 文件不会上传或同步</div>
+      </aside>
+
+      <section class="editor-area">
+        <div class="toolbar" aria-label="文档编辑工具">
+          <div class="toolbar-group">
+            <button type="button" data-command="Undo" title="撤销 Ctrl+Z">↶</button>
+            <button type="button" data-command="Redo" title="重做 Ctrl+Y">↷</button>
+          </div>
+          <span class="toolbar-divider"></span>
+          <div class="toolbar-group text-tools">
+            <button type="button" data-command="Bold" title="加粗 Ctrl+B"><strong>B</strong></button>
+            <button type="button" data-command="Italic" title="斜体 Ctrl+I"><em>I</em></button>
+            <button type="button" data-command="Underline" title="下划线 Ctrl+U"><u>U</u></button>
+          </div>
+          <span class="toolbar-divider"></span>
+          <div class="toolbar-group">
+            <button type="button" data-command="JustifyLeft" title="左对齐">≡</button>
+            <button type="button" data-command="JustifyCenter" title="居中对齐">≣</button>
+            <button type="button" data-command="JustifyRight" title="右对齐">≡</button>
+          </div>
+          <span class="toolbar-spacer"></span>
+          <span class="toolbar-hint">常用快捷键可直接使用</span>
+        </div>
+
+        <main class="workspace">
+          <section id="loading" class="loading" aria-live="polite">
+            <span class="spinner" aria-hidden="true"></span>
+            <h1>正在启动文档引擎</h1>
+            <p>所有处理都在当前浏览器中完成。</p>
+          </section>
+          <section id="welcome" class="welcome" hidden>
+            <span class="welcome-mark">墟</span>
+            <p class="eyebrow">本地文档工作台</p>
+            <h1>把自己的文件夹<br>变成清晰的文档工作台</h1>
+            <p>选择一个本地文件夹，在左侧快速切换文档；修改后直接保存回原文件。</p>
+            <div class="welcome-actions">
+              <button id="welcome-folder" type="button" class="primary">选择本地文件夹</button>
+              <button id="welcome-file" type="button">打开单个文件</button>
+            </div>
+            <div class="format-list"><span>DOCX</span><span>XLSX</span><span>PPTX</span><span>ODT</span><span>ODS</span><span>ODP</span></div>
+          </section>
+          <canvas id="qtcanvas" class="office-canvas" contenteditable="true" hidden></canvas>
+        </main>
+
+        <footer class="status-bar">
+          <span id="status">正在初始化……</span>
+          <span id="document-kind">浏览器本地模式</span>
+        </footer>
       </section>
-      <canvas id="qtcanvas" class="office-canvas" contenteditable="true" hidden></canvas>
-    </main>
-
-    <footer class="status-bar">
-      <span id="status">正在初始化……</span>
-      <span>Writer · Calc · Impress</span>
-    </footer>
+    </div>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>
