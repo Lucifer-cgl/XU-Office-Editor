@@ -6,8 +6,17 @@ param(
 $ErrorActionPreference = "Stop"
 $root = if ($Root) { [System.IO.Path]::GetFullPath($Root) } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 $port = 4173
-$listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $port)
-$listener.Start()
+while ($true) {
+  try {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $port)
+    $listener.Start()
+    break
+  } catch {
+    if ($listener) { $listener.Stop() }
+    $port++
+    if ($port -gt 4190) { throw "No available local port in range 4173-4190." }
+  }
+}
 $prefix = "http://127.0.0.1:$port/"
 if (-not $NoBrowser) { Start-Process $prefix }
 Write-Host "XU Office Editor started: $prefix"
