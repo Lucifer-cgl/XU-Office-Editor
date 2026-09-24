@@ -127,7 +127,8 @@ function hideNativeChrome() {
   try { layout.hideElement("private:resource/menubar/menubar"); } catch {}
   try { layout.showElement("private:resource/dockingwindow/Sidebar"); } catch {}
   try { dispatch("SidebarDeck.NavigatorDeck"); } catch {}
-  try { layout.hideElement("private:resource/statusbar/statusbar"); } catch {}
+  // 保留 LibreOffice 原生状态栏：右下角包含文档缩放滑块和缩放百分比。
+  try { layout.showElement("private:resource/statusbar/statusbar"); } catch {}
   try { dispatch("Ruler"); } catch {}
 }
 
