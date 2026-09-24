@@ -6,16 +6,19 @@ const BRIDGE_SOURCE = "xu-office-editor";
 const SUPPORTED_EXTENSIONS = [
   ".doc", ".docx", ".odt", ".rtf", ".txt", ".html", ".htm",
   ".xls", ".xlsx", ".ods", ".csv",
-  ".ppt", ".pptx", ".odp", ".pdf"
+  ".ppt", ".pptx", ".odp", ".pdf", ".md", ".markdown"
 ];
 const FORMAT_LABELS = {
   doc: "DOC", docx: "DOCX", odt: "ODT", rtf: "RTF", txt: "TXT", html: "HTML", htm: "HTML",
   xls: "XLS", xlsx: "XLSX", ods: "ODS", csv: "CSV",
-  ppt: "PPT", pptx: "PPTX", odp: "ODP", pdf: "PDF"
+  ppt: "PPT", pptx: "PPTX", odp: "ODP", pdf: "PDF", md: "MD", markdown: "MD"
 };
 
 const canvas = document.querySelector("#qtcanvas");
 const pdfViewer = document.querySelector("#pdf-viewer");
+const markdownWorkspace = document.querySelector("#markdown-workspace");
+const markdownPreview = document.querySelector("#markdown-preview");
+const markdownEditor = document.querySelector("#markdown-editor");
 const editorArea = document.querySelector(".editor-area");
 const loading = document.querySelector("#loading");
 const welcome = document.querySelector("#welcome");
@@ -54,6 +57,7 @@ let fileName = "";
 let currentRelativePath = "";
 let folderName = "";
 let folderFiles = [];
+let folderDirectories = [];
 let bridgeTarget = null;
 let bridgeOrigin = "*";
 let documentIsReady = false;
@@ -61,9 +65,85 @@ let documentMode = "read";
 let imeComposing = false;
 let pdfPreviewActive = false;
 let pdfObjectUrl = "";
+let markdownActive = false;
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
+}
+
+function renderMarkdownInline(value) {
+  return escapeHtml(value)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/__([^_]+)__/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+}
+
+function renderMarkdown(value) {
+  const output = [];
+  let codeLines = null;
+  for (const line of String(value).replace(/\r\n?/g, "\n").split("\n")) {
+    if (/^```/.test(line)) {
+      if (codeLines) {
+        output.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+        codeLines = null;
+      } else {
+        codeLines = [];
+      }
+      continue;
+    }
+    if (codeLines) {
+      codeLines.push(line);
+      continue;
+    }
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length;
+      output.push(`<h${level}>${renderMarkdownInline(heading[2])}</h${level}>`);
+    } else if (/^>\s?/.test(line)) {
+      output.push(`<blockquote>${renderMarkdownInline(line.replace(/^>\s?/, ""))}</blockquote>`);
+    } else if (/^[-*+]\s+/.test(line)) {
+      output.push(`<div class="md-list">• ${renderMarkdownInline(line.replace(/^[-*+]\s+/, ""))}</div>`);
+    } else if (/^\d+\.\s+/.test(line)) {
+      const item = line.match(/^(\d+)\.\s+(.+)$/);
+      output.push(`<div class="md-list">${item[1]}. ${renderMarkdownInline(item[2])}</div>`);
+    } else if (/^\s*(---|___|\*\*\*)\s*$/.test(line)) {
+      output.push("<hr>");
+    } else if (line.trim()) {
+      output.push(`<p>${renderMarkdownInline(line)}</p>`);
+    } else {
+      output.push("<br>");
+    }
+  }
+  if (codeLines) output.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+  return output.join("");
+}
+
+function closePdfPreview() {
+  pdfPreviewActive = false;
+  editorArea.classList.remove("pdf-mode");
+  pdfViewer.hidden = true;
+  pdfViewer.removeAttribute("src");
+  if (pdfObjectUrl) {
+    URL.revokeObjectURL(pdfObjectUrl);
+    pdfObjectUrl = "";
+  }
+}
+
+function closeMarkdownWorkspace() {
+  markdownActive = false;
+  editorArea.classList.remove("markdown-mode");
+  markdownWorkspace.hidden = true;
+}
+
+function updateMarkdownSurface() {
+  if (!markdownActive) return;
+  const editing = documentMode === "edit";
+  markdownEditor.hidden = !editing;
+  markdownPreview.hidden = editing;
+  if (!editing) markdownPreview.innerHTML = renderMarkdown(markdownEditor.value);
+  if (editing) requestAnimationFrame(() => markdownEditor.focus());
 }
 
 function setStatus(message) {
@@ -103,7 +183,11 @@ function setDocumentMode(mode, announce = true) {
     imeButton.classList.remove("active");
   }
   updateEditingControls();
-  if (announce && documentIsReady) setStatus(documentMode === "edit" ? "已进入编辑模式，可使用中文输入法" : "已进入阅读模式，编辑已锁定");
+  updateMarkdownSurface();
+  if (announce && documentIsReady) {
+    if (markdownActive) setStatus(documentMode === "edit" ? "已进入 Markdown 编辑模式" : "已进入 Markdown 阅读模式");
+    else setStatus(documentMode === "edit" ? "已进入编辑模式，可使用中文输入法" : "已进入阅读模式，编辑已锁定");
+  }
 }
 
 function extensionOf(name) {
@@ -143,7 +227,10 @@ async function loadBytes(name, bytes, relativePath = name) {
   documentKindLabel.textContent = `${FORMAT_LABELS[extensionName(name)] || "文档"} · 本地编辑`;
   updateActiveTreeFile();
   welcome.hidden = true;
-  if (extensionOf(name) === ".pdf") {
+  const extension = extensionOf(name);
+  if (extension === ".pdf") {
+    closeMarkdownWorkspace();
+    closePdfPreview();
     pdfPreviewActive = true;
     editorArea.classList.add("pdf-mode");
     setDocumentMode("read", false);
@@ -158,14 +245,24 @@ async function loadBytes(name, bytes, relativePath = name) {
     setStatus(`正在阅读 PDF：${relativePath}`);
     return;
   }
-  pdfPreviewActive = false;
-  editorArea.classList.remove("pdf-mode");
-  pdfViewer.hidden = true;
-  pdfViewer.removeAttribute("src");
-  if (pdfObjectUrl) {
-    URL.revokeObjectURL(pdfObjectUrl);
-    pdfObjectUrl = "";
+  if (extension === ".md" || extension === ".markdown") {
+    closePdfPreview();
+    closeMarkdownWorkspace();
+    markdownActive = true;
+    editorArea.classList.add("markdown-mode");
+    markdownWorkspace.hidden = false;
+    markdownEditor.value = new TextDecoder("utf-8").decode(bytes);
+    loading.hidden = true;
+    canvas.hidden = true;
+    setDocumentMode("read", false);
+    updateMarkdownSurface();
+    documentKindLabel.textContent = "Markdown · 按需加载";
+    setDocumentReady(true);
+    setStatus(`正在阅读 Markdown：${relativePath}`);
+    return;
   }
+  closePdfPreview();
+  closeMarkdownWorkspace();
   ensureOfficeDirectory();
   loading.hidden = false;
   loading.querySelector("h1").textContent = "正在打开文档";
@@ -209,32 +306,38 @@ async function chooseFile() {
   }
 }
 
-async function collectFolderFiles(directoryHandle, basePath = "") {
-  const output = [];
+async function collectFolderIndex(directoryHandle, basePath = "") {
+  const index = { files: [], directories: [] };
   for await (const [name, handle] of directoryHandle.entries()) {
     const relativePath = [basePath, name].filter(Boolean).join("/");
     if (handle.kind === "directory") {
-      output.push(...await collectFolderFiles(handle, relativePath));
+      index.directories.push({ name, relativePath, handle });
+      const nested = await collectFolderIndex(handle, relativePath);
+      index.files.push(...nested.files);
+      index.directories.push(...nested.directories);
     } else if (handle.kind === "file" && isSupported(name)) {
-      output.push({ name, relativePath, handle });
+      index.files.push({ name, relativePath, handle });
     }
   }
-  return output;
+  return index;
 }
 
-function buildFolderTree(entries) {
+function buildFolderTree(files, directories) {
   const root = { name: folderName, path: "", children: new Map(), files: [] };
-  for (const entry of entries) {
-    const parts = entry.relativePath.split("/");
-    parts.pop();
+  function ensureDirectory(path) {
     let node = root;
-    for (const part of parts) {
+    for (const part of path.split("/").filter(Boolean)) {
       if (!node.children.has(part)) {
         node.children.set(part, { name: part, path: [node.path, part].filter(Boolean).join("/"), children: new Map(), files: [] });
       }
       node = node.children.get(part);
     }
-    node.files.push(entry);
+    return node;
+  }
+  directories.forEach((entry) => ensureDirectory(entry.relativePath));
+  for (const entry of files) {
+    const parentPath = entry.relativePath.split("/").slice(0, -1).join("/");
+    ensureDirectory(parentPath).files.push(entry);
   }
   return root;
 }
@@ -255,10 +358,11 @@ function renderTreeNode(node, isRoot = false) {
 
 function renderFolderTree() {
   const query = folderSearch.value.trim().toLocaleLowerCase("zh-CN");
-  const visible = query ? folderFiles.filter((entry) => entry.relativePath.toLocaleLowerCase("zh-CN").includes(query)) : folderFiles;
-  folderSummary.textContent = `${folderName} · ${visible.length}${query ? ` / ${folderFiles.length}` : ""} 个文档`;
-  const tree = buildFolderTree(visible);
-  fileTree.innerHTML = renderTreeNode(tree, true) || `<div class="empty-tree"><strong>没有匹配的文档</strong><p>支持 Office、OpenDocument 和 PDF 格式。</p></div>`;
+  const visibleFiles = query ? folderFiles.filter((entry) => entry.relativePath.toLocaleLowerCase("zh-CN").includes(query)) : folderFiles;
+  const visibleDirectories = query ? folderDirectories.filter((entry) => entry.relativePath.toLocaleLowerCase("zh-CN").includes(query)) : folderDirectories;
+  folderSummary.textContent = `${folderName} · ${folderDirectories.length} 个目录 · ${visibleFiles.length}${query ? ` / ${folderFiles.length}` : ""} 个文档`;
+  const tree = buildFolderTree(visibleFiles, visibleDirectories);
+  fileTree.innerHTML = renderTreeNode(tree, true) || `<div class="empty-tree"><strong>没有匹配的文档</strong><p>支持 Office、OpenDocument、PDF 和 Markdown 格式。</p></div>`;
 }
 
 async function chooseFolder() {
@@ -269,10 +373,12 @@ async function chooseFolder() {
   try {
     const directoryHandle = await window.showDirectoryPicker({ mode: "readwrite" });
     folderName = directoryHandle.name || "本地文件夹";
-    folderSummary.textContent = `正在读取 ${folderName}……`;
-    folderFiles = await collectFolderFiles(directoryHandle);
+    folderSummary.textContent = `正在建立 ${folderName} 的目录索引……`;
+    const index = await collectFolderIndex(directoryHandle);
+    folderFiles = index.files;
+    folderDirectories = index.directories;
     renderFolderTree();
-    setStatus(`已连接本地文件夹：${folderName}`);
+    setStatus(`索引完成：${folderDirectories.length} 个目录、${folderFiles.length} 个文档；内容尚未加载`);
   } catch (error) {
     if (error?.name !== "AbortError") setStatus(`文件夹读取失败：${error.message}`);
   }
@@ -288,10 +394,21 @@ async function openTreeFile(relativePath) {
   }
 }
 
-function requestSave() {
+async function requestSave() {
   if (!officePort || !fileName || pdfPreviewActive) return;
   setDocumentReady(false);
   setStatus(`正在保存：${fileName}`);
+  if (markdownActive) {
+    try {
+      await persistBytes(new TextEncoder().encode(markdownEditor.value));
+      markdownPreview.innerHTML = renderMarkdown(markdownEditor.value);
+    } catch (error) {
+      setStatus(`保存失败：${error.message}`);
+    } finally {
+      setDocumentReady(true);
+    }
+    return;
+  }
   officePort.postMessage({ cmd: "download" });
 }
 
@@ -462,6 +579,15 @@ imeBridge.addEventListener("input", (event) => {
 });
 imeBridge.addEventListener("keydown", handleImeKeydown);
 imeBridge.addEventListener("blur", () => imeButton.classList.remove("active"));
+markdownEditor.addEventListener("input", () => {
+  if (markdownActive && documentMode === "edit") setStatus(`Markdown 已修改：${currentRelativePath || fileName}`);
+});
+markdownEditor.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    requestSave();
+  }
+});
 document.addEventListener("keydown", (event) => {
   if (documentMode !== "read" || !documentIsReady) return;
   const navigationKeys = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"]);

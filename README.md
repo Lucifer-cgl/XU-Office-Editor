@@ -4,7 +4,7 @@
 
 ## 当前验证目标
 
-- 在 Chrome / Edge 中打开本地 Word、Excel、PowerPoint、OpenDocument、TXT、HTML、CSV 和 PDF 文件。
+- 在 Chrome / Edge 中打开本地 Word、Excel、PowerPoint、OpenDocument、Markdown、TXT、HTML、CSV 和 PDF 文件。
 - 在浏览器内使用 Writer、Calc、Impress 编辑。
 - 获得授权时覆盖保存原文件；无法直接写回时下载新文件。
 - 通过 `postMessage` 与 XU 交换文件字节，XU 保留文件夹句柄和写入权限。
@@ -22,6 +22,8 @@
 - Writer 编辑模式提供浏览器中文输入桥，可接收系统拼音输入法最终选中的汉字，并写入当前光标位置。
 - 常用工具包括字体、字号、字色、高亮、粗体、斜体、下划线、删除线、段落对齐、列表、缩进、行距、图片、表格和分页。
 - PDF 会出现在本地文件夹目录中，并使用浏览器内置查看器只读预览；不进入 Office 编辑内核，也不会显示保存或编辑工具。
+- 选择文件夹时只遍历目录项并保存浏览器文件句柄，不读取任何文档内容；用户点击某个文件后才调用 `getFile()` 读取该文件。
+- 目录树会保留空目录，并展示 Word、Excel、PowerPoint、PDF、Markdown 等支持的文档；Markdown 使用独立的阅读与纯文本编辑界面。
 
 ## 本地运行（零安装）
 

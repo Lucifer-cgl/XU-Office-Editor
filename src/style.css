@@ -64,8 +64,8 @@ button:disabled { cursor: wait; opacity: .45; }
 .privacy-note { display: flex; align-items: center; gap: 7px; padding: 10px 7px 1px; color: #7c8696; border-top: 1px solid #e4e8ee; font-size: 10px; }
 .privacy-note span { color: #22a699; font-size: 8px; }
 .editor-area { grid-column: 2; grid-row: 2; display: grid; grid-template-rows: 76px minmax(0, 1fr) 28px; min-width: 0; min-height: 0; }
-.editor-area.pdf-mode { grid-template-rows: minmax(0, 1fr) 28px; }
-.editor-area.pdf-mode > .toolbar { display: none; }
+.editor-area.pdf-mode, .editor-area.markdown-mode { grid-template-rows: minmax(0, 1fr) 28px; }
+.editor-area.pdf-mode > .toolbar, .editor-area.markdown-mode > .toolbar { display: none; }
 .toolbar { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 8px 10px; overflow-x: auto; background: #fff; border-bottom: 1px solid var(--line); scrollbar-width: thin; }
 .toolbar-group { display: flex; align-items: center; gap: 3px; flex: 0 0 auto; }
 .toolbar button { display: grid; place-items: center; min-width: 30px; height: 30px; padding: 0 7px; border: 0; border-radius: 7px; color: #3f4858; background: transparent; font-size: 12px; }
@@ -91,6 +91,22 @@ button:disabled { cursor: wait; opacity: .45; }
 .office-canvas { width: 100%; height: 100%; border: 0; padding: 0; outline: 0; background: #dfe4eb; }
 .pdf-viewer { display: block; width: 100%; height: 100%; border: 0; background: #525659; }
 .pdf-viewer[hidden] { display: none; }
+.markdown-workspace { width: 100%; height: 100%; overflow: hidden; background: #f3f5f8; }
+.markdown-workspace[hidden], .markdown-preview[hidden], .markdown-editor[hidden] { display: none; }
+.markdown-preview { width: min(860px, calc(100% - 64px)); min-height: calc(100% - 56px); margin: 28px auto; padding: 52px 64px; overflow-wrap: anywhere; color: #253044; background: white; border: 1px solid #e0e5ec; border-radius: 14px; box-shadow: 0 10px 35px rgba(15,23,42,.07); font-size: 15px; line-height: 1.75; }
+.markdown-preview h1, .markdown-preview h2, .markdown-preview h3, .markdown-preview h4, .markdown-preview h5, .markdown-preview h6 { margin: 1.35em 0 .55em; color: #172033; line-height: 1.3; }
+.markdown-preview h1:first-child, .markdown-preview h2:first-child { margin-top: 0; }
+.markdown-preview h1 { padding-bottom: .3em; border-bottom: 1px solid #e4e8ee; font-size: 2em; }
+.markdown-preview h2 { padding-bottom: .25em; border-bottom: 1px solid #edf0f4; font-size: 1.5em; }
+.markdown-preview p { margin: .75em 0; }
+.markdown-preview blockquote { margin: 1em 0; padding: .2em 1em; color: #647084; border-left: 4px solid #5dcfc2; background: #f5fbfa; }
+.markdown-preview code { padding: .15em .38em; border-radius: 5px; color: #b4235a; background: #f2f4f7; font-family: Consolas, monospace; font-size: .9em; }
+.markdown-preview pre { padding: 16px; overflow: auto; color: #dce6f3; background: #18212f; border-radius: 10px; }
+.markdown-preview pre code { padding: 0; color: inherit; background: transparent; }
+.markdown-preview a { color: #0f766e; }
+.markdown-preview .md-list { padding-left: 1.4em; text-indent: -1em; }
+.markdown-editor { width: min(980px, calc(100% - 44px)); height: calc(100% - 44px); margin: 22px; padding: 26px 30px; resize: none; color: #253044; border: 1px solid #d8dee7; border-radius: 12px; outline: 0; background: white; box-shadow: 0 8px 28px rgba(15,23,42,.06); font-family: "Cascadia Code", Consolas, "Microsoft YaHei", monospace; font-size: 14px; line-height: 1.7; }
+.markdown-editor:focus { border-color: #42bfb2; box-shadow: 0 0 0 3px #dff5f1, 0 8px 28px rgba(15,23,42,.06); }
 .ime-bridge { position: fixed; z-index: 30; width: 2px; height: 22px; padding: 0; opacity: .01; border: 0; outline: 0; resize: none; color: transparent; background: transparent; caret-color: transparent; }
 .read-mode-notice { position: absolute; z-index: 4; top: 14px; right: 16px; padding: 7px 11px; color: #475569; border: 1px solid rgba(148,163,184,.45); border-radius: 999px; background: rgba(255,255,255,.88); box-shadow: 0 5px 18px rgba(15,23,42,.09); backdrop-filter: blur(8px); font-size: 11px; pointer-events: none; }
 .loading, .welcome { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; justify-items: center; padding: 28px; text-align: center; background: radial-gradient(circle at 50% 35%, #fff 0, #f7f8fa 42%, #e9edf2 100%); }
