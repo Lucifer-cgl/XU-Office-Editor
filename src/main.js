@@ -45,6 +45,7 @@ const documentZoomIn = document.querySelector("#document-zoom-in");
 const documentZoomReset = document.querySelector("#document-zoom-reset");
 const documentFit = document.querySelector("#document-fit");
 const documentHandMode = document.querySelector("#document-hand-mode");
+const documentFullscreen = document.querySelector("#document-fullscreen");
 const fontColor = document.querySelector("#font-color");
 const highlightColor = document.querySelector("#highlight-color");
 const lineSpacing = document.querySelector("#line-spacing");
@@ -616,6 +617,16 @@ documentHandMode.addEventListener("click", () => {
   document.documentElement.dataset.viewportMode = hand ? "hand" : "edit";
   documentHandMode.classList.toggle("active", hand);
   documentHandMode.setAttribute("aria-pressed", String(hand));
+});
+function setDocumentFullscreen(active) {
+  document.documentElement.dataset.focusMode = active ? "true" : "false";
+  documentFullscreen.classList.toggle("active", active);
+  documentFullscreen.textContent = active ? "退出全屏" : "全屏";
+  if (embeddedMode && window.parent !== window) window.parent.postMessage({ source: BRIDGE_SOURCE, type: "toggle-fullscreen", active }, window.location.origin);
+}
+documentFullscreen.addEventListener("click", () => setDocumentFullscreen(document.documentElement.dataset.focusMode !== "true"));
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.documentElement.dataset.focusMode === "true") setDocumentFullscreen(false);
 });
 fontFamily.addEventListener("change", () => sendCommand("CharFontName", fontFamily.value));
 fontSize.addEventListener("change", () => sendCommand("FontHeight", fontSize.value));
