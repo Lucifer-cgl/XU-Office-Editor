@@ -151,3 +151,5 @@ html.embedded, html.embedded body { min-width: 0; width: 100%; height: 100%; }
 .embedded .actions button.primary { color: white; border-color: var(--accent); background: var(--accent); }
 .embedded .editor-area { grid-column: 1; grid-row: 2; }
 .embedded .workspace { zoom: var(--workspace-zoom, 1); transform-origin: top center; }
+.embedded[data-viewport-mode="hand"] .workspace { cursor: grab; }
+.embedded[data-viewport-mode="hand"] .workspace:active { cursor: grabbing; }

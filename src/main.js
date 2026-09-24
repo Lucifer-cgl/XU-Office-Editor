@@ -557,6 +557,10 @@ async function receiveBridgeMessage(event) {
     document.documentElement.style.setProperty("--workspace-zoom", String(workspaceZoom));
     return;
   }
+  if (data.type === "viewport-mode") {
+    document.documentElement.dataset.viewportMode = data.value === "hand" ? "hand" : "edit";
+    return;
+  }
   if (data.type === "outline-jump") {
     document.getElementById(String(data.id || ""))?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
@@ -781,3 +785,18 @@ function notifyOfficeViewportResize() {
 
 window.addEventListener("resize", notifyOfficeViewportResize);
 if (workspaceElement && "ResizeObserver" in window) new ResizeObserver(notifyOfficeViewportResize).observe(workspaceElement);
+
+let panState = null;
+workspaceElement?.addEventListener("pointerdown", (event) => {
+  if (document.documentElement.dataset.viewportMode !== "hand") return;
+  panState = { id: event.pointerId, x: event.clientX, y: event.clientY, left: workspaceElement.scrollLeft, top: workspaceElement.scrollTop };
+  workspaceElement.setPointerCapture(event.pointerId);
+  event.preventDefault();
+});
+workspaceElement?.addEventListener("pointermove", (event) => {
+  if (!panState || panState.id !== event.pointerId) return;
+  workspaceElement.scrollLeft = panState.left - (event.clientX - panState.x);
+  workspaceElement.scrollTop = panState.top - (event.clientY - panState.y);
+  event.preventDefault();
+});
+workspaceElement?.addEventListener("pointerup", () => { panState = null; });
