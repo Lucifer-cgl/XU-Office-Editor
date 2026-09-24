@@ -19,6 +19,7 @@ const FORMAT_LABELS = {
 const canvas = document.querySelector("#qtcanvas");
 const pdfViewer = document.querySelector("#pdf-viewer");
 const markdownWorkspace = document.querySelector("#markdown-workspace");
+const workspaceElement = document.querySelector(".workspace");
 const markdownPreview = document.querySelector("#markdown-preview");
 const markdownEditor = document.querySelector("#markdown-editor");
 const editorArea = document.querySelector(".editor-area");
@@ -766,4 +767,17 @@ if (embeddedMode) {
 } else {
   ensureOfficeEngine().catch((error) => setStatus(`启动失败：${error.message}`));
 }
-window.addEventListener("resize", () => requestAnimationFrame(() => window.dispatchEvent(new CustomEvent("xu-office-resize"))));
+function notifyOfficeViewportResize() {
+  requestAnimationFrame(() => {
+    if (workspaceElement && !canvas.hidden) {
+      const rect = workspaceElement.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.round(rect.width * ratio));
+      canvas.height = Math.max(1, Math.round(rect.height * ratio));
+    }
+    window.dispatchEvent(new CustomEvent("xu-office-resize"));
+  });
+}
+
+window.addEventListener("resize", notifyOfficeViewportResize);
+if (workspaceElement && "ResizeObserver" in window) new ResizeObserver(notifyOfficeViewportResize).observe(workspaceElement);
