@@ -254,7 +254,7 @@ async function loadBytes(name, bytes, relativePath = name) {
     canvas.hidden = true;
     if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
     pdfObjectUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
-    pdfViewer.src = `${pdfObjectUrl}#toolbar=0&navpanes=0&view=Fit&zoom=page-width`;
+    pdfViewer.src = `${pdfObjectUrl}#toolbar=0&navpanes=0&zoom=page-fit`;
     pdfViewer.hidden = false;
     documentKindLabel.textContent = "PDF · 只读预览";
     setDocumentReady(true);
