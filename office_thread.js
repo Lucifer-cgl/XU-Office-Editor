@@ -168,6 +168,11 @@ function run() {
       setDocumentZoom(event.data.value);
       return;
     }
+    if (event.data.cmd === "document-zoom-step") {
+      const command = event.data.value === "plus" ? "ZoomPlus" : event.data.value === "minus" ? "ZoomMinus" : "ZoomOptimal";
+      try { dispatch(command); } catch { /* The document module may not expose native zoom commands. */ }
+      return;
+    }
     if (event.data.cmd === "document-fit") {
       try {
         const settings = controller?.getViewSettings();
