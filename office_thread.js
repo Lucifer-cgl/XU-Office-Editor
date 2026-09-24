@@ -74,6 +74,7 @@ function setDocumentZoom(value) {
   const zoom = Math.max(60, Math.min(160, Math.round(Number(value) || 100)));
   try {
     const settings = controller.getViewSettings();
+    settings.setPropertyValue("ZoomType", zetajs.Any("com.sun.star.view.DocumentZoomType", "BY_VALUE"));
     settings.setPropertyValue("ZoomValue", zetajs.Any("short", zoom));
   } catch { /* Some document modules do not expose view settings. */ }
   try { dispatch("Zoom", zoom); } catch { /* Keep the native view at its current scale. */ }
@@ -165,6 +166,13 @@ function run() {
     }
     if (event.data.cmd === "document-zoom") {
       setDocumentZoom(event.data.value);
+      return;
+    }
+    if (event.data.cmd === "document-fit") {
+      try {
+        const settings = controller?.getViewSettings();
+        settings?.setPropertyValue("ZoomType", zetajs.Any("com.sun.star.view.DocumentZoomType", "ENTIRE_PAGE"));
+      } catch { try { dispatch("Zoom", 70); } catch {} }
       return;
     }
     if (event.data.cmd === "insert-image") {

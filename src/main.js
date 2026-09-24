@@ -43,6 +43,7 @@ const documentZoomValue = document.querySelector("#document-zoom-value");
 const documentZoomOut = document.querySelector("#document-zoom-out");
 const documentZoomIn = document.querySelector("#document-zoom-in");
 const documentZoomReset = document.querySelector("#document-zoom-reset");
+const documentFit = document.querySelector("#document-fit");
 const documentHandMode = document.querySelector("#document-hand-mode");
 const fontColor = document.querySelector("#font-color");
 const highlightColor = document.querySelector("#highlight-color");
@@ -609,6 +610,7 @@ modeButtons.forEach((button) => button.addEventListener("click", () => setDocume
 documentZoomOut.addEventListener("click", () => updateDocumentZoom(documentZoom - 10));
 documentZoomIn.addEventListener("click", () => updateDocumentZoom(documentZoom + 10));
 documentZoomReset.addEventListener("click", () => updateDocumentZoom(100));
+documentFit.addEventListener("click", () => officePort?.postMessage({ cmd: "document-fit" }));
 documentHandMode.addEventListener("click", () => {
   const hand = document.documentElement.dataset.viewportMode !== "hand";
   document.documentElement.dataset.viewportMode = hand ? "hand" : "edit";
