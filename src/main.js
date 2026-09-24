@@ -6,15 +6,17 @@ const BRIDGE_SOURCE = "xu-office-editor";
 const SUPPORTED_EXTENSIONS = [
   ".doc", ".docx", ".odt", ".rtf", ".txt", ".html", ".htm",
   ".xls", ".xlsx", ".ods", ".csv",
-  ".ppt", ".pptx", ".odp"
+  ".ppt", ".pptx", ".odp", ".pdf"
 ];
 const FORMAT_LABELS = {
   doc: "DOC", docx: "DOCX", odt: "ODT", rtf: "RTF", txt: "TXT", html: "HTML", htm: "HTML",
   xls: "XLS", xlsx: "XLSX", ods: "ODS", csv: "CSV",
-  ppt: "PPT", pptx: "PPTX", odp: "ODP"
+  ppt: "PPT", pptx: "PPTX", odp: "ODP", pdf: "PDF"
 };
 
 const canvas = document.querySelector("#qtcanvas");
+const pdfViewer = document.querySelector("#pdf-viewer");
+const editorArea = document.querySelector(".editor-area");
 const loading = document.querySelector("#loading");
 const welcome = document.querySelector("#welcome");
 const openButton = document.querySelector("#open-file");
@@ -57,6 +59,8 @@ let bridgeOrigin = "*";
 let documentIsReady = false;
 let documentMode = "read";
 let imeComposing = false;
+let pdfPreviewActive = false;
+let pdfObjectUrl = "";
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -75,19 +79,23 @@ function setEngineReady(ready) {
 
 function setDocumentReady(ready) {
   documentIsReady = ready;
-  saveButton.disabled = !ready;
-  modeButtons.forEach((button) => { button.disabled = !ready; });
+  saveButton.disabled = !ready || pdfPreviewActive;
+  modeButtons.forEach((button) => { button.disabled = !ready || (pdfPreviewActive && button.dataset.mode === "edit"); });
   updateEditingControls();
 }
 
 function updateEditingControls() {
-  const locked = !documentIsReady || documentMode !== "edit";
+  const locked = !documentIsReady || documentMode !== "edit" || pdfPreviewActive;
   editingControls.forEach((control) => { control.disabled = locked; });
   readModeNotice.hidden = !documentIsReady || documentMode !== "read";
   canvas.setAttribute("contenteditable", documentMode === "edit" ? "true" : "false");
 }
 
 function setDocumentMode(mode, announce = true) {
+  if (pdfPreviewActive && mode === "edit") {
+    if (announce) setStatus("PDF 为只读预览，不能进入编辑模式");
+    return;
+  }
   documentMode = mode === "edit" ? "edit" : "read";
   modeButtons.forEach((button) => button.classList.toggle("active", button.dataset.mode === documentMode));
   if (documentMode === "read") {
@@ -128,7 +136,6 @@ function updateActiveTreeFile() {
 async function loadBytes(name, bytes, relativePath = name) {
   if (!officePort) throw new Error("文档引擎尚未就绪");
   if (!isSupported(name)) throw new Error(`暂不支持 ${extensionOf(name) || "该格式"}`);
-  ensureOfficeDirectory();
   fileName = name;
   currentRelativePath = relativePath;
   fileNameLabel.textContent = name;
@@ -136,6 +143,30 @@ async function loadBytes(name, bytes, relativePath = name) {
   documentKindLabel.textContent = `${FORMAT_LABELS[extensionName(name)] || "文档"} · 本地编辑`;
   updateActiveTreeFile();
   welcome.hidden = true;
+  if (extensionOf(name) === ".pdf") {
+    pdfPreviewActive = true;
+    editorArea.classList.add("pdf-mode");
+    setDocumentMode("read", false);
+    loading.hidden = true;
+    canvas.hidden = true;
+    if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
+    pdfObjectUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    pdfViewer.src = `${pdfObjectUrl}#toolbar=0&navpanes=0&view=FitH`;
+    pdfViewer.hidden = false;
+    documentKindLabel.textContent = "PDF · 只读预览";
+    setDocumentReady(true);
+    setStatus(`正在阅读 PDF：${relativePath}`);
+    return;
+  }
+  pdfPreviewActive = false;
+  editorArea.classList.remove("pdf-mode");
+  pdfViewer.hidden = true;
+  pdfViewer.removeAttribute("src");
+  if (pdfObjectUrl) {
+    URL.revokeObjectURL(pdfObjectUrl);
+    pdfObjectUrl = "";
+  }
+  ensureOfficeDirectory();
   loading.hidden = false;
   loading.querySelector("h1").textContent = "正在打开文档";
   loading.querySelector("p").textContent = relativePath;
@@ -158,7 +189,7 @@ async function chooseFile() {
     if ("showOpenFilePicker" in window) {
       const handles = await window.showOpenFilePicker({
         multiple: false,
-        types: [{ description: "可编辑文档", accept: { "application/octet-stream": SUPPORTED_EXTENSIONS } }]
+        types: [{ description: "支持的文档", accept: { "application/octet-stream": SUPPORTED_EXTENSIONS } }]
       });
       await openFileHandle(handles[0]);
       return;
@@ -225,9 +256,9 @@ function renderTreeNode(node, isRoot = false) {
 function renderFolderTree() {
   const query = folderSearch.value.trim().toLocaleLowerCase("zh-CN");
   const visible = query ? folderFiles.filter((entry) => entry.relativePath.toLocaleLowerCase("zh-CN").includes(query)) : folderFiles;
-  folderSummary.textContent = `${folderName} · ${visible.length}${query ? ` / ${folderFiles.length}` : ""} 个可编辑文件`;
+  folderSummary.textContent = `${folderName} · ${visible.length}${query ? ` / ${folderFiles.length}` : ""} 个文档`;
   const tree = buildFolderTree(visible);
-  fileTree.innerHTML = renderTreeNode(tree, true) || `<div class="empty-tree"><strong>没有匹配的文档</strong><p>支持 Word、Excel、PowerPoint 和 OpenDocument 格式。</p></div>`;
+  fileTree.innerHTML = renderTreeNode(tree, true) || `<div class="empty-tree"><strong>没有匹配的文档</strong><p>支持 Office、OpenDocument 和 PDF 格式。</p></div>`;
 }
 
 async function chooseFolder() {
@@ -258,7 +289,7 @@ async function openTreeFile(relativePath) {
 }
 
 function requestSave() {
-  if (!officePort || !fileName) return;
+  if (!officePort || !fileName || pdfPreviewActive) return;
   setDocumentReady(false);
   setStatus(`正在保存：${fileName}`);
   officePort.postMessage({ cmd: "download" });
@@ -443,6 +474,7 @@ document.addEventListener("keydown", (event) => {
 }, true);
 window.addEventListener("message", receiveBridgeMessage);
 window.addEventListener("beforeunload", () => {
+  if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
   if (bridgeTarget) bridgeTarget.postMessage({ source: BRIDGE_SOURCE, type: "closed" }, bridgeOrigin);
 });
 setDocumentReady(false);

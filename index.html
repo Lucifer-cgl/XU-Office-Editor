@@ -42,7 +42,7 @@
           <div class="empty-tree">
             <span>＋</span>
             <strong>连接本地文件夹</strong>
-            <p>Word、Excel、PPT 等文件只在你的电脑中读取。</p>
+            <p>Word、Excel、PPT、PDF 等文件只在你的电脑中读取。</p>
           </div>
         </nav>
         <div class="privacy-note"><span>●</span> 文件不会上传或同步</div>
@@ -114,9 +114,10 @@
               <button id="welcome-folder" type="button" class="primary">选择本地文件夹</button>
               <button id="welcome-file" type="button">打开单个文件</button>
             </div>
-            <div class="format-list"><span>DOCX</span><span>XLSX</span><span>PPTX</span><span>ODT</span><span>ODS</span><span>ODP</span></div>
+            <div class="format-list"><span>DOCX</span><span>XLSX</span><span>PPTX</span><span>PDF</span><span>ODT</span><span>ODS</span><span>ODP</span></div>
           </section>
           <canvas id="qtcanvas" class="office-canvas" contenteditable="false" hidden></canvas>
+          <iframe id="pdf-viewer" class="pdf-viewer" title="PDF 只读预览" hidden></iframe>
           <textarea id="ime-bridge" class="ime-bridge" lang="zh-CN" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="中文输入桥"></textarea>
           <input id="image-picker" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden>
           <div id="read-mode-notice" class="read-mode-notice" hidden>阅读模式 · 已锁定编辑</div>
