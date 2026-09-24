@@ -832,16 +832,30 @@ window.addEventListener("resize", notifyOfficeViewportResize);
 if (workspaceElement && "ResizeObserver" in window) new ResizeObserver(notifyOfficeViewportResize).observe(workspaceElement);
 
 let panState = null;
-workspaceElement?.addEventListener("pointerdown", (event) => {
+function beginPan(event) {
   if (document.documentElement.dataset.viewportMode !== "hand") return;
   panState = { id: event.pointerId, x: event.clientX, y: event.clientY, left: workspaceElement.scrollLeft, top: workspaceElement.scrollTop };
-  workspaceElement.setPointerCapture(event.pointerId);
+  (event.currentTarget || workspaceElement).setPointerCapture(event.pointerId);
   event.preventDefault();
-});
-workspaceElement?.addEventListener("pointermove", (event) => {
+}
+function movePan(event) {
   if (!panState || panState.id !== event.pointerId) return;
-  workspaceElement.scrollLeft = panState.left - (event.clientX - panState.x);
-  workspaceElement.scrollTop = panState.top - (event.clientY - panState.y);
+  const dx = panState.x - event.clientX;
+  const dy = panState.y - event.clientY;
+  const horizontal = Math.trunc(dx / 24);
+  const vertical = Math.trunc(dy / 24);
+  if (officePort) {
+    for (let index = 0; index < Math.min(4, Math.abs(horizontal)); index += 1) officePort.postMessage({ cmd: "command", id: horizontal > 0 ? "ScrollRight" : "ScrollLeft" });
+    for (let index = 0; index < Math.min(4, Math.abs(vertical)); index += 1) officePort.postMessage({ cmd: "command", id: vertical > 0 ? "ScrollDown" : "ScrollUp" });
+  }
+  panState.x = event.clientX;
+  panState.y = event.clientY;
   event.preventDefault();
+}
+function endPan() { panState = null; }
+[workspaceElement, canvas].forEach((target) => {
+  target?.addEventListener("pointerdown", beginPan);
+  target?.addEventListener("pointermove", movePan);
+  target?.addEventListener("pointerup", endPan);
+  target?.addEventListener("pointercancel", endPan);
 });
-workspaceElement?.addEventListener("pointerup", () => { panState = null; });

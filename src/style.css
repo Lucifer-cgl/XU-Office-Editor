@@ -153,6 +153,8 @@ html.embedded, html.embedded body { min-width: 0; width: 100%; height: 100%; }
 .embedded .editor-area { grid-column: 1; grid-row: 2; }
 .embedded[data-viewport-mode="hand"] .workspace { cursor: grab; }
 .embedded[data-viewport-mode="hand"] .workspace:active { cursor: grabbing; }
+.embedded[data-viewport-mode="hand"] .office-canvas { cursor: grab; touch-action: none; }
+.embedded[data-viewport-mode="hand"] .office-canvas:active { cursor: grabbing; }
 .focus-mode .app-shell { position: fixed; inset: 0; z-index: 100; grid-template-columns: 1fr; }
 .focus-mode .app-bar, .focus-mode .resource-panel { display: none; }
 .focus-mode .editor-area { grid-column: 1; grid-row: 1; }
