@@ -39,11 +39,6 @@ const commandButtons = [...document.querySelectorAll("[data-command]")];
 const modeButtons = [...document.querySelectorAll("[data-mode]")];
 const fontFamily = document.querySelector("#font-family");
 const fontSize = document.querySelector("#font-size");
-const documentZoomValue = document.querySelector("#document-zoom-value");
-const documentZoomOut = document.querySelector("#document-zoom-out");
-const documentZoomIn = document.querySelector("#document-zoom-in");
-const documentZoomReset = document.querySelector("#document-zoom-reset");
-const documentFit = document.querySelector("#document-fit");
 const documentFullscreen = document.querySelector("#document-fullscreen");
 const fontColor = document.querySelector("#font-color");
 const highlightColor = document.querySelector("#highlight-color");
@@ -75,16 +70,9 @@ let imeComposing = false;
 let pdfPreviewActive = false;
 let pdfObjectUrl = "";
 let markdownActive = false;
-let documentZoom = 100;
 let engineBootPromise;
 let resolveEngineBoot;
 let rejectEngineBoot;
-
-function updateDocumentZoom(value, notify = true) {
-  documentZoom = Math.min(160, Math.max(60, Math.round(Number(value) || 100)));
-  if (documentZoomValue) documentZoomValue.textContent = `${documentZoom}%`;
-  if (notify) officePort?.postMessage({ cmd: "document-zoom", value: documentZoom });
-}
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -252,7 +240,6 @@ async function loadBytes(name, bytes, relativePath = name) {
   if (!isSupported(name)) throw new Error(`暂不支持 ${extensionOf(name) || "该格式"}`);
   fileName = name;
   currentRelativePath = relativePath;
-  updateDocumentZoom(100, false);
   fileNameLabel.textContent = name;
   filePathLabel.textContent = relativePath;
   documentKindLabel.textContent = `${FORMAT_LABELS[extensionName(name)] || "文档"} · 本地编辑`;
@@ -563,10 +550,6 @@ async function receiveBridgeMessage(event) {
   const data = event.data;
   if (!data || data.source !== "xu-knowledge-base") return;
   if (embeddedMode && event.origin !== window.location.origin) return;
-  if (data.type === "viewport-zoom") {
-    updateDocumentZoom((Number(data.value) || 1) * 100);
-    return;
-  }
   if (data.type === "outline-jump") {
     document.getElementById(String(data.id || ""))?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
@@ -600,10 +583,6 @@ fileTree.addEventListener("click", (event) => {
 });
 commandButtons.forEach((button) => button.addEventListener("click", () => sendCommand(button.dataset.command)));
 modeButtons.forEach((button) => button.addEventListener("click", () => setDocumentMode(button.dataset.mode)));
-documentZoomOut.addEventListener("click", () => updateDocumentZoom(documentZoom - 10));
-documentZoomIn.addEventListener("click", () => updateDocumentZoom(documentZoom + 10));
-documentZoomReset.addEventListener("click", () => updateDocumentZoom(100));
-documentFit.addEventListener("click", () => officePort?.postMessage({ cmd: "document-fit" }));
 async function setDocumentFullscreen(active) {
   document.documentElement.dataset.focusMode = active ? "true" : "false";
   documentFullscreen.classList.toggle("active", active);
@@ -726,7 +705,6 @@ async function bootOffice() {
             welcome.hidden = false;
             setEngineReady(true);
             setStatus("文档引擎已就绪");
-            officePort.postMessage({ cmd: "document-zoom", value: documentZoom });
             resolveEngineBoot?.();
             return;
           }
@@ -736,7 +714,6 @@ async function bootOffice() {
             canvas.hidden = false;
             setDocumentReady(true);
             setDocumentMode("read", false);
-            officePort.postMessage({ cmd: "document-zoom", value: documentZoom });
             setStatus(`阅读中：${currentRelativePath || fileName}`);
             requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
             return;

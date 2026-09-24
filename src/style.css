@@ -154,6 +154,3 @@ html.embedded, html.embedded body { min-width: 0; width: 100%; height: 100%; }
 .focus-mode .app-shell { position: fixed; inset: 0; z-index: 100; grid-template-columns: 1fr; }
 .focus-mode .app-bar, .focus-mode .resource-panel { display: none; }
 .focus-mode .editor-area { grid-column: 1; grid-row: 1; }
-.view-tools { display: inline-flex; align-items: center; gap: 3px; }
-.view-tools strong { min-width: 42px; text-align: center; color: var(--muted); font-size: 12px; }
-.view-tools button.active { color: var(--accent); background: var(--accent-soft); }
