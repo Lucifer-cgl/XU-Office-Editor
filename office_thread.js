@@ -61,10 +61,28 @@ function dispatch(command, value) {
     );
   } else if (command === "InsertText") {
     args.push(new css.beans.PropertyValue({ Name: "Text", Value: String(value) }));
+  } else if (command === "Zoom") {
+    args.push(new css.beans.PropertyValue({ Name: "Zoom.Value", Value: zetajs.Any("short", Math.round(Number(value) || 100)) }));
   } else if (command === "Color" || command === "CharBackColor") {
     args.push(new css.beans.PropertyValue({ Name: `${command}.Color`, Value: zetajs.Any("long", Number(value)) }));
   }
   queryDispatch(urlObject)?.dispatch(urlObject, args);
+}
+
+function setDocumentZoom(value) {
+  if (!controller) return;
+  const zoom = Math.max(60, Math.min(160, Math.round(Number(value) || 100)));
+  try {
+    const settings = controller.getViewSettings();
+    settings.setPropertyValue("ZoomValue", zetajs.Any("short", zoom));
+    return;
+  } catch {
+    try {
+      dispatch("Zoom", zoom);
+    } catch {
+      // Some document modules do not expose a zoom controller.
+    }
+  }
 }
 
 function insertImage(filename) {
@@ -149,6 +167,10 @@ function run() {
     }
     if (event.data.cmd === "command") {
       dispatch(event.data.id, event.data.value);
+      return;
+    }
+    if (event.data.cmd === "document-zoom") {
+      setDocumentZoom(event.data.value);
       return;
     }
     if (event.data.cmd === "insert-image") {
