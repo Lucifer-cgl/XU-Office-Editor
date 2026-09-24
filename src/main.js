@@ -68,6 +68,7 @@ let imeComposing = false;
 let pdfPreviewActive = false;
 let pdfObjectUrl = "";
 let markdownActive = false;
+let workspaceZoom = 1;
 let engineBootPromise;
 let resolveEngineBoot;
 let rejectEngineBoot;
@@ -238,6 +239,8 @@ async function loadBytes(name, bytes, relativePath = name) {
   if (!isSupported(name)) throw new Error(`暂不支持 ${extensionOf(name) || "该格式"}`);
   fileName = name;
   currentRelativePath = relativePath;
+  workspaceZoom = 1;
+  document.documentElement.style.setProperty("--workspace-zoom", "1");
   fileNameLabel.textContent = name;
   filePathLabel.textContent = relativePath;
   documentKindLabel.textContent = `${FORMAT_LABELS[extensionName(name)] || "文档"} · 本地编辑`;
@@ -548,6 +551,11 @@ async function receiveBridgeMessage(event) {
   const data = event.data;
   if (!data || data.source !== "xu-knowledge-base") return;
   if (embeddedMode && event.origin !== window.location.origin) return;
+  if (data.type === "viewport-zoom") {
+    workspaceZoom = Math.min(1.6, Math.max(.6, Number(data.value) || 1));
+    document.documentElement.style.setProperty("--workspace-zoom", String(workspaceZoom));
+    return;
+  }
   if (data.type === "outline-jump") {
     document.getElementById(String(data.id || ""))?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
