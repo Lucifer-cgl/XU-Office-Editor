@@ -1,4 +1,6 @@
 const ENGINE_BASE_URL = new URL("../assets/zetaoffice/", import.meta.url).href;
+const embeddedMode = new URLSearchParams(window.location.search).get("embedded") === "1";
+document.documentElement.classList.toggle("embedded", embeddedMode);
 const BUNDLED_FONTS = [
   { url: new URL("../assets/fonts/NotoSansSC.ttf", import.meta.url), fileName: "NotoSansSC.ttf" }
 ];
@@ -66,6 +68,9 @@ let imeComposing = false;
 let pdfPreviewActive = false;
 let pdfObjectUrl = "";
 let markdownActive = false;
+let engineBootPromise;
+let resolveEngineBoot;
+let rejectEngineBoot;
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -83,7 +88,7 @@ function renderMarkdownInline(value) {
 function renderMarkdown(value) {
   const output = [];
   let codeLines = null;
-  for (const line of String(value).replace(/\r\n?/g, "\n").split("\n")) {
+  for (const [lineIndex, line] of String(value).replace(/\r\n?/g, "\n").split("\n").entries()) {
     if (/^```/.test(line)) {
       if (codeLines) {
         output.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
@@ -100,7 +105,7 @@ function renderMarkdown(value) {
     const heading = line.match(/^(#{1,6})\s+(.+)$/);
     if (heading) {
       const level = heading[1].length;
-      output.push(`<h${level}>${renderMarkdownInline(heading[2])}</h${level}>`);
+      output.push(`<h${level} id="md-heading-${lineIndex + 1}">${renderMarkdownInline(heading[2])}</h${level}>`);
     } else if (/^>\s?/.test(line)) {
       output.push(`<blockquote>${renderMarkdownInline(line.replace(/^>\s?/, ""))}</blockquote>`);
     } else if (/^[-*+]\s+/.test(line)) {
@@ -148,6 +153,18 @@ function updateMarkdownSurface() {
 
 function setStatus(message) {
   statusLabel.textContent = message;
+  if (bridgeTarget) bridgeTarget.postMessage({ source: BRIDGE_SOURCE, type: "status", message }, bridgeOrigin);
+}
+
+function sendOutline(items = []) {
+  if (bridgeTarget) bridgeTarget.postMessage({ source: BRIDGE_SOURCE, type: "outline-changed", items }, bridgeOrigin);
+}
+
+function markdownOutline(value) {
+  return String(value).replace(/\r\n?/g, "\n").split("\n").flatMap((line, index) => {
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+    return heading ? [{ id: `md-heading-${index + 1}`, title: heading[2].trim(), level: heading[1].length, kind: "heading" }] : [];
+  });
 }
 
 function setEngineReady(ready) {
@@ -218,7 +235,6 @@ function updateActiveTreeFile() {
 }
 
 async function loadBytes(name, bytes, relativePath = name) {
-  if (!officePort) throw new Error("文档引擎尚未就绪");
   if (!isSupported(name)) throw new Error(`暂不支持 ${extensionOf(name) || "该格式"}`);
   fileName = name;
   currentRelativePath = relativePath;
@@ -242,6 +258,7 @@ async function loadBytes(name, bytes, relativePath = name) {
     pdfViewer.hidden = false;
     documentKindLabel.textContent = "PDF · 只读预览";
     setDocumentReady(true);
+    sendOutline([]);
     setStatus(`正在阅读 PDF：${relativePath}`);
     return;
   }
@@ -258,9 +275,11 @@ async function loadBytes(name, bytes, relativePath = name) {
     updateMarkdownSurface();
     documentKindLabel.textContent = "Markdown · 按需加载";
     setDocumentReady(true);
+    sendOutline(markdownOutline(markdownEditor.value));
     setStatus(`正在阅读 Markdown：${relativePath}`);
     return;
   }
+  await ensureOfficeEngine();
   closePdfPreview();
   closeMarkdownWorkspace();
   ensureOfficeDirectory();
@@ -395,7 +414,7 @@ async function openTreeFile(relativePath) {
 }
 
 async function requestSave() {
-  if (!officePort || !fileName || pdfPreviewActive) return;
+  if ((!officePort && !markdownActive) || !fileName || pdfPreviewActive) return;
   setDocumentReady(false);
   setStatus(`正在保存：${fileName}`);
   if (markdownActive) {
@@ -525,19 +544,29 @@ function insertTable() {
   tableRows.focus();
 }
 
-function receiveBridgeMessage(event) {
+async function receiveBridgeMessage(event) {
   const data = event.data;
-  if (!data || data.source !== "xu-knowledge-base" || data.type !== "open-file") return;
+  if (!data || data.source !== "xu-knowledge-base") return;
+  if (embeddedMode && event.origin !== window.location.origin) return;
+  if (data.type === "outline-jump") {
+    document.getElementById(String(data.id || ""))?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (data.type !== "open-file") return;
   if (!(data.bytes instanceof ArrayBuffer) || typeof data.name !== "string") return;
   bridgeTarget = event.source;
   bridgeOrigin = event.origin || "*";
   fileHandle = null;
-  loadBytes(data.name, data.bytes).catch((error) => setStatus(`打开失败：${error.message}`));
+  try {
+    await loadBytes(data.name, data.bytes, data.relativePath || data.name);
+  } catch (error) {
+    setStatus(`打开失败：${error.message}`);
+  }
 }
 
 function notifyBridgeReady() {
   const target = window.opener || (window.parent !== window ? window.parent : null);
-  if (target) target.postMessage({ source: BRIDGE_SOURCE, type: "ready" }, "*");
+  if (target) target.postMessage({ source: BRIDGE_SOURCE, type: "ready", embedded: embeddedMode }, embeddedMode ? window.location.origin : "*");
 }
 
 openButton.addEventListener("click", chooseFile);
@@ -607,12 +636,14 @@ setDocumentReady(false);
 setDocumentMode("read", false);
 
 async function bootOffice() {
-  if (!("serviceWorker" in navigator)) throw new Error("请使用最新版 Chrome 或 Edge");
-  await navigator.serviceWorker.register(new URL("../sw.js", import.meta.url), { scope: "../" });
-  await navigator.serviceWorker.ready;
-  if (!navigator.serviceWorker.controller) {
-    location.reload();
-    return;
+  if (!embeddedMode) {
+    if (!("serviceWorker" in navigator)) throw new Error("请使用最新版 Chrome 或 Edge");
+    await navigator.serviceWorker.register(new URL("../sw.js", import.meta.url), { scope: "../" });
+    await navigator.serviceWorker.ready;
+    if (!navigator.serviceWorker.controller) {
+      location.reload();
+      return;
+    }
   }
   setStatus("正在加载中文字体…");
   const bundledFonts = await Promise.all(BUNDLED_FONTS.map(async (font) => {
@@ -638,7 +669,11 @@ async function bootOffice() {
   window.Module.mainScriptUrlOrBlob = new Blob([`importScripts('${ENGINE_BASE_URL}soffice.js');`], { type: "text/javascript" });
   const engineScript = document.createElement("script");
   engineScript.src = `${ENGINE_BASE_URL}soffice.js`;
-  engineScript.addEventListener("error", () => setStatus("文档引擎加载失败，请检查仓库文件是否完整。"));
+  engineScript.addEventListener("error", () => {
+    const error = new Error("文档引擎加载失败，请检查仓库文件是否完整");
+    rejectEngineBoot?.(error);
+    setStatus(`${error.message}。`);
+  });
   engineScript.addEventListener("load", () => {
     window.Module.uno_main.then((port) => {
       officePort = port;
@@ -649,7 +684,7 @@ async function bootOffice() {
             welcome.hidden = false;
             setEngineReady(true);
             setStatus("文档引擎已就绪");
-            notifyBridgeReady();
+            resolveEngineBoot?.();
             return;
           }
           if (event.data.cmd === "ui_ready") {
@@ -690,10 +725,37 @@ async function bootOffice() {
           setStatus(`操作失败：${error.message}`);
         }
       };
-    }).catch((error) => setStatus(`文档引擎初始化失败：${error.message}`));
+    }).catch((error) => {
+      rejectEngineBoot?.(error);
+      setStatus(`文档引擎初始化失败：${error.message}`);
+    });
   });
   document.body.appendChild(engineScript);
 }
 
-bootOffice().catch((error) => setStatus(`启动失败：${error.message}`));
+function ensureOfficeEngine() {
+  if (officePort) return Promise.resolve();
+  if (!engineBootPromise) {
+    engineBootPromise = new Promise((resolve, reject) => {
+      resolveEngineBoot = resolve;
+      rejectEngineBoot = reject;
+    });
+    bootOffice().catch((error) => {
+      rejectEngineBoot?.(error);
+      setStatus(`启动失败：${error.message}`);
+    });
+  }
+  return engineBootPromise;
+}
+
+if (embeddedMode) {
+  loading.hidden = true;
+  welcome.hidden = false;
+  welcome.querySelector("h1").innerHTML = "从 XU 打开一个文档";
+  welcome.querySelector("p:not(.eyebrow)").textContent = "本地运行组件已连接，文档内容只在当前浏览器中处理。";
+  welcome.querySelector(".welcome-actions").hidden = true;
+  notifyBridgeReady();
+} else {
+  ensureOfficeEngine().catch((error) => setStatus(`启动失败：${error.message}`));
+}
 window.addEventListener("resize", () => requestAnimationFrame(() => window.dispatchEvent(new CustomEvent("xu-office-resize"))));

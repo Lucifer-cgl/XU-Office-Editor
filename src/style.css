@@ -137,3 +137,16 @@ button:disabled { cursor: wait; opacity: .45; }
 .dialog-actions button.primary { color: white; border-color: var(--accent); background: var(--accent); }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1040px) { .app-shell { grid-template-columns: 230px minmax(0, 1fr); } .app-bar { grid-template-columns: 230px minmax(150px, 1fr) auto auto; } .resource-panel { padding-left: 10px; padding-right: 10px; } }
+
+html.embedded, html.embedded body { min-width: 0; width: 100%; height: 100%; }
+.embedded .app-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: 54px minmax(0, 1fr); }
+.embedded .app-bar { grid-column: 1; grid-row: 1; grid-template-columns: minmax(120px, 1fr) auto auto; min-width: 0; padding: 0 12px; background: #f8f9fb; border-color: var(--line); box-shadow: none; color: var(--ink); }
+.embedded .brand, .embedded .resource-panel, .embedded #open-file { display: none; }
+.embedded .file-state { justify-items: start; }
+.embedded #file-path { color: var(--muted); }
+.embedded .mode-switch { border-color: #d8dee7; background: #eef1f5; }
+.embedded .mode-switch button { color: #647084; }
+.embedded .actions { min-width: 0; }
+.embedded .actions button { min-height: 34px; color: #344054; border-color: #d7dde6; background: white; }
+.embedded .actions button.primary { color: white; border-color: var(--accent); background: var(--accent); }
+.embedded .editor-area { grid-column: 1; grid-row: 2; }

@@ -2,6 +2,8 @@
 
 这是 XU 的独立、本地优先 Office 编辑器验证项目。它使用 ZetaOffice / ZetaJS 在浏览器中运行 LibreOffice WebAssembly，不需要把文档上传到服务器，也不要求用户安装 Microsoft Office、WPS 或 LibreOffice。
 
+本仓库同时是 XU 可选择的本地文档运行组件目录。用户下载或克隆一次后，可以在 XU 的“本地文档引擎”入口选择本仓库根目录；XU 保留自己的左侧目录、公共/本地混合标签和右侧栏，只把本仓库的文档画布与编辑工具嵌入中间区域。
+
 ## 当前验证目标
 
 - 在 Chrome / Edge 中打开本地 Word、Excel、PowerPoint、OpenDocument、Markdown、TXT、HTML、CSV 和 PDF 文件。
@@ -70,6 +72,19 @@ editorWindow.postMessage({
 ```
 
 XU 收到后使用原来的 `FileSystemFileHandle.createWritable()` 写回文件。文件内容只在两个浏览器窗口之间传递。
+
+嵌入地址使用 `?embedded=1`。嵌入模式会隐藏本仓库自己的文件夹侧栏和品牌外壳，PDF 与 Markdown 可直接打开；只有 Word、Excel、PowerPoint 等 Office 格式才启动大型 WebAssembly 内核。Markdown 会通过 `outline-changed` 消息把标题目录交给 XU，XU 使用 `outline-jump` 请求工作台跳转。
+
+本地联调时不需要发布仓库：在 XU 左侧“我的资源”底部选择当前 `XU-Office-Editor` 仓库根目录即可。XU 的 Service Worker 会把获得授权的本地运行文件映射为同源资源，并在浏览器中流式组合 WASM/Data 分片。
+
+## 发行约定
+
+- GitHub 仓库用于源码协作和国外下载；
+- Gitee 镜像用于中国大陆下载；
+- 两边必须使用相同版本号并发布相同内容；
+- 发行包保持完整目录结构，不要求用户安装 WPS、Microsoft Office 或 LibreOffice；
+- 用户解压后应放在固定目录，不应移动、改名或删除其中的运行组件；
+- 更新包应附带版本和文件校验清单，后续支持只更新变化的分片。
 
 ## 浏览器安全要求
 
