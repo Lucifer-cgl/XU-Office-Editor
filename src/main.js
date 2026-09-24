@@ -44,7 +44,6 @@ const documentZoomOut = document.querySelector("#document-zoom-out");
 const documentZoomIn = document.querySelector("#document-zoom-in");
 const documentZoomReset = document.querySelector("#document-zoom-reset");
 const documentFit = document.querySelector("#document-fit");
-const documentHandMode = document.querySelector("#document-hand-mode");
 const documentFullscreen = document.querySelector("#document-fullscreen");
 const fontColor = document.querySelector("#font-color");
 const highlightColor = document.querySelector("#highlight-color");
@@ -84,11 +83,6 @@ let rejectEngineBoot;
 function updateDocumentZoom(value, notify = true) {
   documentZoom = Math.min(160, Math.max(60, Math.round(Number(value) || 100)));
   if (documentZoomValue) documentZoomValue.textContent = `${documentZoom}%`;
-  if (canvas) {
-    canvas.style.width = `${documentZoom}%`;
-    canvas.style.height = `${documentZoom}%`;
-    canvas.style.transform = "none";
-  }
   if (notify) officePort?.postMessage({ cmd: "document-zoom", value: documentZoom });
 }
 
@@ -259,9 +253,6 @@ async function loadBytes(name, bytes, relativePath = name) {
   fileName = name;
   currentRelativePath = relativePath;
   updateDocumentZoom(100, false);
-  document.documentElement.dataset.viewportMode = "edit";
-  documentHandMode?.classList.remove("active");
-  documentHandMode?.setAttribute("aria-pressed", "false");
   fileNameLabel.textContent = name;
   filePathLabel.textContent = relativePath;
   documentKindLabel.textContent = `${FORMAT_LABELS[extensionName(name)] || "文档"} · 本地编辑`;
@@ -576,10 +567,6 @@ async function receiveBridgeMessage(event) {
     updateDocumentZoom((Number(data.value) || 1) * 100);
     return;
   }
-  if (data.type === "viewport-mode") {
-    document.documentElement.dataset.viewportMode = data.value === "hand" ? "hand" : "edit";
-    return;
-  }
   if (data.type === "outline-jump") {
     document.getElementById(String(data.id || ""))?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
@@ -617,12 +604,6 @@ documentZoomOut.addEventListener("click", () => updateDocumentZoom(documentZoom 
 documentZoomIn.addEventListener("click", () => updateDocumentZoom(documentZoom + 10));
 documentZoomReset.addEventListener("click", () => updateDocumentZoom(100));
 documentFit.addEventListener("click", () => officePort?.postMessage({ cmd: "document-fit" }));
-documentHandMode.addEventListener("click", () => {
-  const hand = document.documentElement.dataset.viewportMode !== "hand";
-  document.documentElement.dataset.viewportMode = hand ? "hand" : "edit";
-  documentHandMode.classList.toggle("active", hand);
-  documentHandMode.setAttribute("aria-pressed", String(hand));
-});
 async function setDocumentFullscreen(active) {
   document.documentElement.dataset.focusMode = active ? "true" : "false";
   documentFullscreen.classList.toggle("active", active);
@@ -835,32 +816,3 @@ function notifyOfficeViewportResize() {
 
 window.addEventListener("resize", notifyOfficeViewportResize);
 if (workspaceElement && "ResizeObserver" in window) new ResizeObserver(notifyOfficeViewportResize).observe(workspaceElement);
-
-let panState = null;
-function beginPan(event) {
-  if (document.documentElement.dataset.viewportMode !== "hand") return;
-  panState = { id: event.pointerId, x: event.clientX, y: event.clientY, left: workspaceElement.scrollLeft, top: workspaceElement.scrollTop };
-  (event.currentTarget || workspaceElement).setPointerCapture(event.pointerId);
-  event.preventDefault();
-}
-function movePan(event) {
-  if (!panState || panState.id !== event.pointerId) return;
-  const dx = panState.x - event.clientX;
-  const dy = panState.y - event.clientY;
-  const horizontal = Math.trunc(dx / 24);
-  const vertical = Math.trunc(dy / 24);
-  if (officePort) {
-    for (let index = 0; index < Math.min(4, Math.abs(horizontal)); index += 1) officePort.postMessage({ cmd: "command", id: horizontal > 0 ? "ScrollRight" : "ScrollLeft" });
-    for (let index = 0; index < Math.min(4, Math.abs(vertical)); index += 1) officePort.postMessage({ cmd: "command", id: vertical > 0 ? "ScrollDown" : "ScrollUp" });
-  }
-  panState.x = event.clientX;
-  panState.y = event.clientY;
-  event.preventDefault();
-}
-function endPan() { panState = null; }
-[workspaceElement, canvas].forEach((target) => {
-  target?.addEventListener("pointerdown", beginPan);
-  target?.addEventListener("pointermove", movePan);
-  target?.addEventListener("pointerup", endPan);
-  target?.addEventListener("pointercancel", endPan);
-});
