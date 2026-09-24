@@ -84,6 +84,11 @@ let rejectEngineBoot;
 function updateDocumentZoom(value, notify = true) {
   documentZoom = Math.min(160, Math.max(60, Math.round(Number(value) || 100)));
   if (documentZoomValue) documentZoomValue.textContent = `${documentZoom}%`;
+  if (canvas) {
+    canvas.style.width = `${documentZoom}%`;
+    canvas.style.height = `${documentZoom}%`;
+    canvas.style.transform = "none";
+  }
   if (notify) officePort?.postMessage({ cmd: "document-zoom", value: documentZoom });
 }
 
@@ -608,9 +613,9 @@ fileTree.addEventListener("click", (event) => {
 });
 commandButtons.forEach((button) => button.addEventListener("click", () => sendCommand(button.dataset.command)));
 modeButtons.forEach((button) => button.addEventListener("click", () => setDocumentMode(button.dataset.mode)));
-documentZoomOut.addEventListener("click", () => { documentZoom = Math.max(60, documentZoom - 10); documentZoomValue.textContent = `${documentZoom}%`; officePort?.postMessage({ cmd: "document-zoom-step", value: "minus" }); });
-documentZoomIn.addEventListener("click", () => { documentZoom = Math.min(160, documentZoom + 10); documentZoomValue.textContent = `${documentZoom}%`; officePort?.postMessage({ cmd: "document-zoom-step", value: "plus" }); });
-documentZoomReset.addEventListener("click", () => { documentZoom = 100; documentZoomValue.textContent = "100%"; officePort?.postMessage({ cmd: "document-zoom-step", value: "optimal" }); });
+documentZoomOut.addEventListener("click", () => updateDocumentZoom(documentZoom - 10));
+documentZoomIn.addEventListener("click", () => updateDocumentZoom(documentZoom + 10));
+documentZoomReset.addEventListener("click", () => updateDocumentZoom(100));
 documentFit.addEventListener("click", () => officePort?.postMessage({ cmd: "document-fit" }));
 documentHandMode.addEventListener("click", () => {
   const hand = document.documentElement.dataset.viewportMode !== "hand";
