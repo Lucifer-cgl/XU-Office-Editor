@@ -4,6 +4,15 @@
 
 本仓库同时是 XU 可选择的本地文档运行组件目录。用户下载或克隆一次后，可以在 XU 的“本地文档引擎”入口选择本仓库根目录；XU 保留自己的左侧目录、公共/本地混合标签和右侧栏，只把本仓库的文档画布与编辑工具嵌入中间区域。
 
+## 仓库与下载
+
+- GitHub 源码仓库：[Lucifer-cgl/XU-Office-Editor](https://github.com/Lucifer-cgl/XU-Office-Editor)
+- GitHub ZIP 下载：[下载最新版](https://github.com/Lucifer-cgl/XU-Office-Editor/archive/refs/heads/main.zip)
+- XU 主仓库：[Lucifer-cgl/XU](https://github.com/Lucifer-cgl/XU)
+- XU 在线入口：[xu.lucifer-cgl.workers.dev](https://xu.lucifer-cgl.workers.dev/)
+
+海外用户可直接使用 GitHub；中国大陆用户后续可使用同版本 Gitee 镜像（镜像地址发布后会在这里补充）。下载后请完整解压并保留目录结构，不要删除或改名 `assets/`、`sw.js` 和字体文件。
+
 ## 当前验证目标
 
 - 在 Chrome / Edge 中打开本地 Word、Excel、PowerPoint、OpenDocument、Markdown、TXT、HTML、CSV 和 PDF 文件。
