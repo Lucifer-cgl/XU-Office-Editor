@@ -45,6 +45,10 @@ const highlightColor = document.querySelector("#highlight-color");
 const lineSpacing = document.querySelector("#line-spacing");
 const insertImageButton = document.querySelector("#insert-image");
 const insertTableButton = document.querySelector("#insert-table");
+const documentZoomValue = document.querySelector("#document-zoom-value");
+const documentZoomOut = document.querySelector("#document-zoom-out");
+const documentZoomIn = document.querySelector("#document-zoom-in");
+const documentFit = document.querySelector("#document-fit");
 const imeButton = document.querySelector("#ime-focus");
 const imeBridge = document.querySelector("#ime-bridge");
 const imagePicker = document.querySelector("#image-picker");
@@ -66,6 +70,7 @@ let bridgeTarget = null;
 let bridgeOrigin = "*";
 let documentIsReady = false;
 let documentMode = "read";
+let documentZoom = 100;
 let imeComposing = false;
 let pdfPreviewActive = false;
 let pdfObjectUrl = "";
@@ -73,6 +78,12 @@ let markdownActive = false;
 let engineBootPromise;
 let resolveEngineBoot;
 let rejectEngineBoot;
+
+function updateDocumentZoom(value, notify = true) {
+  documentZoom = Math.min(160, Math.max(60, Math.round(Number(value) || 100)));
+  if (documentZoomValue) documentZoomValue.textContent = `${documentZoom}%`;
+  if (notify) officePort?.postMessage({ cmd: "document-zoom", value: documentZoom });
+}
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -240,6 +251,7 @@ async function loadBytes(name, bytes, relativePath = name) {
   if (!isSupported(name)) throw new Error(`暂不支持 ${extensionOf(name) || "该格式"}`);
   fileName = name;
   currentRelativePath = relativePath;
+  updateDocumentZoom(100, false);
   fileNameLabel.textContent = name;
   filePathLabel.textContent = relativePath;
   documentKindLabel.textContent = `${FORMAT_LABELS[extensionName(name)] || "文档"} · 本地编辑`;
@@ -603,6 +615,9 @@ document.addEventListener("fullscreenchange", () => {
   if (!document.fullscreenElement && document.documentElement.dataset.focusMode === "true") void setDocumentFullscreen(false);
 });
 fontFamily.addEventListener("change", () => sendCommand("CharFontName", fontFamily.value));
+documentZoomOut.addEventListener("click", () => updateDocumentZoom(documentZoom - 10));
+documentZoomIn.addEventListener("click", () => updateDocumentZoom(documentZoom + 10));
+documentFit.addEventListener("click", () => officePort?.postMessage({ cmd: "document-fit" }));
 fontSize.addEventListener("change", () => sendCommand("FontHeight", fontSize.value));
 fontColor.addEventListener("input", () => sendCommand("Color", colorNumber(fontColor.value)));
 highlightColor.addEventListener("input", () => sendCommand("CharBackColor", colorNumber(highlightColor.value)));
@@ -705,6 +720,7 @@ async function bootOffice() {
             welcome.hidden = false;
             setEngineReady(true);
             setStatus("文档引擎已就绪");
+            officePort.postMessage({ cmd: "document-zoom", value: documentZoom });
             resolveEngineBoot?.();
             return;
           }
@@ -714,6 +730,7 @@ async function bootOffice() {
             canvas.hidden = false;
             setDocumentReady(true);
             setDocumentMode("read", false);
+            officePort.postMessage({ cmd: "document-zoom", value: documentZoom });
             setStatus(`阅读中：${currentRelativePath || fileName}`);
             requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
             return;
